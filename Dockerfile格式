@@ -1,0 +1,73 @@
+#FROM　为后面的指令设置基础镜像。一个有效的Dockerfile文件必须以FROM作为第一条非注释指令。
+FROM <image>:<tag>
+例如：FROM centos:latest
+
+#MAINTAINER　设置生成的镜像的Author字段
+MAINTAINER <name>
+
+#RUN　将在当前镜像的新的一层执行任何命令并提交结果。
+RUN有两种格式：
+RUN <command> shell格式，这个命令在shell中执行，Linux中默认是/bin/sh -c，windows系统默认是cmd /S /C
+RUN ["executable", "param1", "param2"] exec格式
+
+#ADD
+ADD …
+ADD [“”,… “”] 对于包含空格的路径，使用这种格式
+ADD指令复制新文件、目录或远程文件URL并添加他们到容器的文件系统路径，可以指定多个。每个可以包含通配符。
+所有的新文件或目录使用UID和GID为0创建。如果是一个远程文件URL，目标将会是600的权限。如果远程文件有HTTP Last-Modified头，这个HTTP头部的时间戳将用于设置目标文件的mtime。
+
+ADD指令遵循以下规则：
+必须包含在构建的上下文中，不能使用ADD ../something /something。
+如果是一个URL，不是以斜杠结束，文件将被从URL下载并拷贝到。
+如果是一个URL，以斜杠结束，文件名将从URL中获取，文件被下载到/。例如：ADD http://example.com/foobar /将会创建文件/foobar。不能是http://example.com类的URL。
+如果是目录，目录的所有内容将被复制，包括文件系统元数据（目录本身不复制，只是它的内容）。
+如果是一个gzip,bzip2或者xz类型的压缩归档文件，文件将被作为一个目录解压。远程URL文件不会被解压。如果一个目录被复制或者解压，与tar -x的行为相同：结果唯一： 
+1、无论在目标路径是否存在和 
+2、源目录树的内容，冲突以逐个文件为基础解析为”2.”
+注意：文件是否被识别为识别的压缩格式仅基于文件的内容，而不是文件的文件名。例如：一个空文件以.tar.gz结尾，则不会被识别为压缩文件，并且不会生成任何解压缩错误消息，而是该文件将被文件简单的复制到目的地。
+如果是其他类型的文件，它将于它的元数据一起单独的复制。在这种情况下，如果以/结尾，它将被认为是目录，的内容将被写在/base()。
+如果指定了多个，无论是直接或使用通配符，必须是目录，并且以/结束。
+如果不是以斜杠结束，将会被认作是一个常规文件，的内容将被写入。
+如果不存在，所有在路径中不存在的目录将会被创建。
+
+#COPY
+COPY <src>... <dest>
+COPY ["<src>",... "<dest>"] 路径中包含空格时需要这种格式
+COPY指令从复制新文件文件或目录并添加它们到容器的文件系统路径。是一个绝对路径，或者相对WORKDIR的路径，其中源将被复制到目标容器内。
+　COPY test relativeDir/   # 添加 "test" 到 `WORKDIR`/relativeDir/
+　COPY test /absoluteDir/  # 添加 "test" 到 /absoluteDir/
+
+所有的文件和目录以UID和GID 0 创建。
+
+COPY遵循如下规则：
+
+路径必须在构建的上下文中，不能使用COPY ../something /something
+如果是一个目录，目录的所有内容包括元数据将会被复制。
+注意：目录本身不会被复制，只有它的内容。
+
+如果是其他类型的文件，它将于它的元数据一起被单独复制。这种情况下，如果以斜杠/结束，它将会被认作是目录，的内容将被写在/base()。
+如果指定了多个，或者直接或者使用通配符，必须是目录，且以/结束。
+如果没有以斜杠结束，将会认作是一般文件，并且的内容将被写入。
+如果不存在，所有在路径中不存在的目录将会被创建。
+
+#ENTRYPOINT
+ENTRYPOINT ["executable", "param1", "param2"] exec格式，推荐
+ENTRYPOINT command param1 param2 shell格式
+ENTRYPOINT允许配置容器作为可执行文件运行。
+
+例如，下面的例子将会以默认内容启动nginx，监听端口80：
+
+docker run -i -t --rm -p 80:80 nginx
+
+docker run <image>的命令行参数将附加在exec格式的ENTRYPOINT中的所有元素之后，并将覆盖使用CMD指令所有元素。这允许将参数传递到入口点，例如：docker run <iamge> -d将把-d参数传给入口点，可以使用–entrypoint标志覆盖ENTRYPOINT指令。
+
+shell形式防止使用任何CMD或者运行命令行参数，但是缺点是ENTRYPOINT将作为/bin/sh -c的子命令启动，不传递信号。这意味着可执行文件将不是容器的PID 1，并且不接收Unix信号，因此您的可执行文件将不会从docker stop <container>接收到SIGTERM。
+
+只有Dockerfile文件的最后一条ENTRYPOINT指令生效。
+
+CMD和ENTRYPOINT是如何互相影响的
+
+1、Dockerfile应该至少指定一个CMD或者ENTRYPOINT命令 
+2、当使用容器作为可执行文件使用时，应该定义ENTRYPOINT 
+3、CMD应该用作定义ENTRYPOINT命令的默认参数或在容器中执行ad-hoc命令的一种方法 
+4、当运行带有替代参数的容器时，CMD将被覆盖
